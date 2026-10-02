@@ -112,7 +112,10 @@ resource "azurerm_linux_virtual_machine" "pft" {
     username   = "azureuser"
     public_key = file(pathexpand("~/.ssh/id_ed25519.pub"))
   }
-
+  admin_ssh_key {
+    username   = "azureuser"
+    public_key = file(pathexpand("~/.ssh/jenkins_id_ed25519.pub"))
+  }
   os_disk {
     caching              = "ReadWrite"
     storage_account_type = "Standard_LRS"
