@@ -125,3 +125,7 @@ resource "azurerm_linux_virtual_machine" "pft" {
     version   = "latest"
   }
 }
+output "public_ip" {
+  description = "Public IP address of the PFT VM"
+  value       = azurerm_public_ip.pft.ip_address
+}

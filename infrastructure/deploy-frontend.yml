@@ -7,7 +7,7 @@
     frontend_image: manuraj05/pft-frontend:latest
     container_name: pft-frontend
     network_name: pft-network
-    backend_url: "http://172.198.64.90:5000/api"
+    backend_url: ""
 
   tasks:
     - name: Pull frontend image
