@@ -122,6 +122,12 @@ pipeline {
                         echo "Dynamic Ansible inventory:"
                         cat "$INVENTORY_FILE"
 
+                        echo "Installing Docker on Azure VM..."
+
+                        ansible-playbook \
+                            -i "$INVENTORY_FILE" \
+                            infrastructure/install-docker.yml
+
                         echo "Deploying backend..."
 
                         ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_FILE" \
