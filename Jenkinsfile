@@ -52,66 +52,88 @@ pipeline {
         }
 
         stage('Deploy to Azure') {
-            steps {
-                withCredentials([
-                    string(credentialsId: 'ansible-vault-password', variable: 'VAULT_PASSWORD'),
-                    string(credentialsId: 'azure-client-id', variable: 'AZURE_CLIENT_ID'),
-                    string(credentialsId: 'azure-client-secret', variable: 'AZURE_CLIENT_SECRET'),
-                    string(credentialsId: 'azure-tenant-id', variable: 'AZURE_TENANT_ID')
-                ]) {
-                    sh '''
-                        VAULT_FILE=$(mktemp)
-                        INVENTORY_FILE=$(mktemp)
+                steps {
+                    withCredentials([
+                        string(
+                            credentialsId: 'ansible-vault-password',
+                            variable: 'VAULT_PASSWORD'
+                        ),
+                        string(
+                            credentialsId: 'azure-client-id',
+                            variable: 'AZURE_CLIENT_ID'
+                        ),
+                        string(
+                            credentialsId: 'azure-client-secret',
+                            variable: 'AZURE_CLIENT_SECRET'
+                        ),
+                        string(
+                            credentialsId: 'azure-tenant-id',
+                            variable: 'AZURE_TENANT_ID'
+                        )
+                    ]) {
+                        sh '''
+                            VAULT_FILE=$(mktemp)
+                            INVENTORY_FILE=$(mktemp)
 
-                        chmod 600 "$VAULT_FILE" "$INVENTORY_FILE"
+                            chmod 600 "$VAULT_FILE" "$INVENTORY_FILE"
 
-                        cleanup() {
-                            rm -f "$VAULT_FILE" "$INVENTORY_FILE"
-                            az logout >/dev/null 2>&1 || true
-                        }
+                            cleanup() {
+                                rm -f "$VAULT_FILE" "$INVENTORY_FILE"
+                                az logout >/dev/null 2>&1 || true
+                            }
 
-                        trap cleanup EXIT
+                            trap cleanup EXIT
 
-                        printf '%s' "$VAULT_PASSWORD" > "$VAULT_FILE"
+                            printf '%s' "$VAULT_PASSWORD" > "$VAULT_FILE"
 
-                        az login \
-                            --service-principal \
-                            --username "$AZURE_CLIENT_ID" \
-                            --password "$AZURE_CLIENT_SECRET" \
-                            --tenant "$AZURE_TENANT_ID" \
-                            --output none
+                            echo "Logging in to Azure..."
 
-                        PUBLIC_IP=$(az vm list-ip-addresses \
-                            --resource-group pft-dev-rg \
-                            --name pft-vm \
-                            --query "[].virtualMachine.network.publicIpAddresses[].ipAddress" \
-                            --output tsv)
+                            az login \
+                                --service-principal \
+                                --username "$AZURE_CLIENT_ID" \
+                                --password "$AZURE_CLIENT_SECRET" \
+                                --tenant "$AZURE_TENANT_ID" \
+                                --output none
 
-                        echo "Azure VM public IP: $PUBLIC_IP"
+                            echo "Getting current Azure VM public IP..."
 
-                        printf '%s\\n' \
-                            '[web]' \
-                            "pft-vm ansible_host=${PUBLIC_IP} ansible_user=azureuser" \
-                            > "$INVENTORY_FILE"
+                            PUBLIC_IP=$(az vm list-ip-addresses \
+                                --resource-group pft-dev-rg \
+                                --name pft-vm \
+                                --query "[].virtualMachine.network.publicIpAddresses[].ipAddress" \
+                                --output tsv)
 
-                        echo "Dynamic Ansible inventory:"
-                        cat "$INVENTORY_FILE"
+                            echo "Azure VM public IP: $PUBLIC_IP"
 
-                        ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_FILE" \
-                        ansible-playbook \
-                            -i "$INVENTORY_FILE" \
-                            infrastructure/deploy-backend.yml \
-                            -e "backend_image=manuraj05/pft-backend:${BUILD_NUMBER}"
+                            printf '%s\\n' \
+                                '[web]' \
+                                "pft-vm ansible_host=${PUBLIC_IP} ansible_user=azureuser" \
+                                > "$INVENTORY_FILE"
 
-                        ansible-playbook \
-                            -i "$INVENTORY_FILE" \
-                            infrastructure/deploy-frontend.yml \
-                            -e "frontend_image=manuraj05/pft-frontend:${BUILD_NUMBER}" \
-                            -e "backend_url=http://${PUBLIC_IP}:5000/api"
-                    '''
+                            echo "Dynamic Ansible inventory:"
+                            cat "$INVENTORY_FILE"
+
+                            echo "Deploying backend..."
+
+                            ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_FILE" \
+                            ansible-playbook \
+                                -i "$INVENTORY_FILE" \
+                                infrastructure/deploy-backend.yml \
+                                -e "backend_image=manuraj05/pft-backend:${BUILD_NUMBER}"
+
+                            echo "Deploying frontend..."
+
+                            ansible-playbook \
+                                -i "$INVENTORY_FILE" \
+                                infrastructure/deploy-frontend.yml \
+                                -e "frontend_image=manuraj05/pft-frontend:${BUILD_NUMBER}" \
+                                -e "backend_url=http://${PUBLIC_IP}:5000/api"
+
+                            echo "Deployment completed successfully."
+                        '''
+                    }
                 }
             }
-        }
     }
 }
 
