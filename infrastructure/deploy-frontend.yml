@@ -1,0 +1,29 @@
+---
+- name: Deploy PFT Frontend
+  hosts: web
+  become: true
+
+  vars:
+    frontend_image: manuraj05/pft-frontend:latest
+    container_name: pft-frontend
+    network_name: pft-network
+    backend_url: "http://172.198.64.90:5000/api"
+
+  tasks:
+    - name: Pull frontend image
+      community.docker.docker_image:
+        name: "{{ frontend_image }}"
+        source: pull
+
+    - name: Run frontend container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ frontend_image }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "3000:3000"
+        networks:
+          - name: "{{ network_name }}"
+        env:
+          NEXT_PUBLIC_API_URL: "{{ backend_url }}"

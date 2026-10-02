@@ -1,0 +1,42 @@
+---
+- name: Deploy PFT Backend
+  hosts: web
+  become: true
+
+  vars_files:
+    - secrets.yml
+
+  vars:
+    backend_image: manuraj05/pft-backend:latest
+    container_name: pft-backend
+    network_name: pft-network
+
+  tasks:
+    - name: Install Python Docker SDK
+      ansible.builtin.apt:
+        name: python3-docker
+        state: present
+        update_cache: true
+    - name: Create Docker network
+      community.docker.docker_network:
+        name: "{{ network_name }}"
+
+    - name: Pull backend image
+      community.docker.docker_image:
+        name: "{{ backend_image }}"
+        source: pull
+
+    - name: Run backend container
+      community.docker.docker_container:
+        name: "{{ container_name }}"
+        image: "{{ backend_image }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "5000:5000"
+        networks:
+          - name: "{{ network_name }}"
+        env:
+          MONGODB_URI: "{{ mongodb_uri }}"
+          JWT_SECRET: "{{ jwt_secret }}"
+
