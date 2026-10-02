@@ -2,13 +2,6 @@ pipeline {
     agent any
 
     stages {
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                    url: 'https://github.com/ManuRaj05/personal-finance-tracker.git'
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
                 dir('backend') {
@@ -53,6 +46,35 @@ pipeline {
                         docker push $DOCKER_USERNAME/pft-frontend:${BUILD_NUMBER}
 
                         docker logout
+                    '''
+                }
+            }
+        }
+
+        stage('Deploy to Azure') {
+            steps {
+                withCredentials([string(
+                    credentialsId: 'ansible-vault-password',
+                    variable: 'VAULT_PASSWORD'
+                )]) {
+                    sh '''
+                        VAULT_FILE=$(mktemp)
+                        chmod 600 "$VAULT_FILE"
+                        trap 'rm -f "$VAULT_FILE"' EXIT
+
+                        printf '%s' "$VAULT_PASSWORD" > "$VAULT_FILE"
+
+                        ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_FILE" \
+                        ansible-playbook \
+                            -i infrastructure/inventory \
+                            infrastructure/deploy-backend.yml \
+                            -e "backend_image=manuraj05/pft-backend:${BUILD_NUMBER}"
+
+                        ANSIBLE_VAULT_PASSWORD_FILE="$VAULT_FILE" \
+                        ansible-playbook \
+                            -i infrastructure/inventory \
+                            infrastructure/deploy-frontend.yml \
+                            -e "frontend_image=manuraj05/pft-frontend:${BUILD_NUMBER}"
                     '''
                 }
             }
