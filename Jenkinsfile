@@ -143,6 +143,12 @@ pipeline {
                             infrastructure/deploy-frontend.yml \
                             -e "frontend_image=manuraj05/pft-frontend:${BUILD_NUMBER}" \
                             -e "backend_url=http://${PUBLIC_IP}:5000/api"
+                        
+                        echo "Setting up monitoring..."
+
+                        ansible-playbook \
+                            -i "$INVENTORY_FILE" \
+                            infrastructure/setup-monitoring.yml
 
                         echo "Deployment completed successfully."
                     '''
