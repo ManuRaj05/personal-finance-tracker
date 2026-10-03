@@ -1,0 +1,71 @@
+---
+- name: Setup Monitoring
+  hosts: web
+  become: true
+
+  tasks:
+    - name: Install Python Docker SDK
+      ansible.builtin.apt:
+        name: python3-docker
+        state: present
+        update_cache: true
+
+    - name: Install Node Exporter
+      community.docker.docker_container:
+        name: node-exporter
+        image: quay.io/prometheus/node-exporter:latest
+        state: started
+        restart_policy: unless-stopped
+        network_mode: host
+        pid_mode: host
+
+    - name: Install cAdvisor
+      community.docker.docker_container:
+        name: cadvisor
+        image: gcr.io/cadvisor/cadvisor:latest
+        state: started
+        restart_policy: unless-stopped
+        privileged: true
+        published_ports:
+          - "8080:8080"
+        volumes:
+          - "/:/rootfs:ro"
+          - "/var/run:/var/run:ro"
+          - "/sys:/sys:ro"
+          - "/var/lib/docker:/var/lib/docker:ro"
+
+    - name: Create monitoring directory
+      ansible.builtin.file:
+        path: /opt/pft-monitoring
+        state: directory
+        mode: "0755"
+
+    - name: Copy Prometheus configuration
+      ansible.builtin.copy:
+        src: prometheus.yml
+        dest: /opt/pft-monitoring/prometheus.yml
+        mode: "0644"
+
+    - name: Run Prometheus
+      community.docker.docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: unless-stopped
+        published_ports:
+          - "9090:9090"
+        etc_hosts:
+          host.docker.internal: host-gateway
+        volumes:
+          - "/opt/pft-monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+
+    - name: Run Grafana
+      community.docker.docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: unless-stopped
+        published_ports:
+          - "3001:3000"
+        etc_hosts:
+          host.docker.internal: host-gateway  
