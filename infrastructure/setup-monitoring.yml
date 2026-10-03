@@ -59,6 +59,34 @@
         volumes:
           - "/opt/pft-monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
 
+    - name: Create Grafana provisioning directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /opt/pft-monitoring/grafana/provisioning/datasources
+        - /opt/pft-monitoring/grafana/provisioning/dashboards
+        - /opt/pft-monitoring/grafana/dashboards
+
+    - name: Copy Grafana datasource configuration
+      ansible.builtin.copy:
+        src: grafana/provisioning/datasources/prometheus.yml
+        dest: /opt/pft-monitoring/grafana/provisioning/datasources/prometheus.yml
+        mode: "0644"
+
+    - name: Copy Grafana dashboard provider configuration
+      ansible.builtin.copy:
+        src: grafana/provisioning/dashboards/dashboards.yml
+        dest: /opt/pft-monitoring/grafana/provisioning/dashboards/dashboards.yml
+        mode: "0644"
+
+    - name: Copy Grafana dashboard
+      ansible.builtin.copy:
+        src: grafana/dashboards/pft-monitoring.json
+        dest: /opt/pft-monitoring/grafana/dashboards/pft-monitoring.json
+        mode: "0644"
+
     - name: Run Grafana
       community.docker.docker_container:
         name: grafana
@@ -68,4 +96,7 @@
         published_ports:
           - "3001:3000"
         etc_hosts:
-          host.docker.internal: host-gateway  
+          host.docker.internal: host-gateway
+        volumes:
+          - "/opt/pft-monitoring/grafana/provisioning:/etc/grafana/provisioning:ro"
+          - "/opt/pft-monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro"

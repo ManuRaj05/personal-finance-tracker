@@ -1,0 +1,11 @@
+apiVersion: 1
+
+providers:
+  - name: PFT
+    orgId: 1
+    folder: PFT
+    type: file
+    disableDeletion: false
+    editable: true
+    options:
+      path: /var/lib/grafana/dashboards
